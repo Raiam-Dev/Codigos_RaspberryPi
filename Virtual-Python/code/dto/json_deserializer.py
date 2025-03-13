@@ -1,4 +1,4 @@
-class MapperPort:
+class JsonDeserializer:
     def __init__(self,client_ip = "", topico = "", porta = "",estado = 0):
         
         self.client_ip = client_ip

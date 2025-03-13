@@ -1,12 +1,12 @@
 import json
 import sys
+import time
 sys.path.append("/Mapper/")
 sys.path.append("/ComandoPorta/")
+from dto import json_deserializer
+from dto import json_serializer
+from Transmiter import rasp_transmiter
 import paho.mqtt.client as mqtt
-from Mapper import port_mapper_json
-from ComandoPorta import port_comand
-from Mapper import mapper_return
-import time
 
 class ClientMqtt:
     def __init__(self, broker = "192.168.25.104", topico = "meu/topico", port = 1883, client_ip = "192.168.25.104", username = "admin", password = "admin"):
@@ -31,32 +31,30 @@ class ClientMqtt:
 
     def on_message (self,client, userdata, msg):
         try:
-            msg_json = json.loads(msg.payload.decode())
+            json_dicionario = json.loads(msg.payload.decode())
             
-            print(json.dumps(msg_json, indent=4))
+            print(json.dumps(json_dicionario, indent=4))
 
-            for con in msg_json["comando"]:
-                mapper_json = port_mapper_json.MapperPort(
-                client_ip = con["client_ip"],
-                topico = con["topico"],
-                porta = con["porta"],
-                estado = con["estado"])
+            for json_info in json_dicionario["comando"]:
+                json_decoder = json_deserializer.JsonDeserializer(
+                client_ip = json_info["client_ip"],
+                topico = json_info["topico"],
+                porta = json_info["porta"],
+                estado = json_info["estado"])
 
-                retorno = mapper_return.MapperReturn(
-                    client_ip = mapper_json.client_ip,
-                    porta= mapper_json.porta,
-                    estado= mapper_json.estado, 
-                    topico= mapper_json.topico)
+                info_json = json_serializer.JsonSerializer(
+                    client_ip = json_decoder.client_ip,
+                    porta= json_decoder.porta,
+                    estado= json_decoder.estado, 
+                    topico= json_decoder.topico)
                 
-                json_retorno = retorno.mapper()
+                json_retorno = info_json.Json()
                 
-                enviar = port_comand.ComandPort(pin=mapper_json.porta, estado=mapper_json.estado)
-                enviar.comand()
-                time.sleep(1)
-                enviar.retornar(msg=json_retorno, topico=retorno.topico)
-
+                enviar = rasp_transmiter.RaspTransmiter(pin=info_json.porta, estado=info_json.estado)
+                enviar.envio()
+                enviar.resposta(msg=json_retorno, topico=info_json.topico)
         except Exception as e:
-            print(f"Erro: {e} ao Decodificar a mensagem: {msg_json}")
+            print(f"Erro: {e} ao Decodificar a mensagem: {info_json}")
     
     def on_disconnect (self,client, userdata, rc):
         print(f"Deconectado com Sucesso {rc}")
